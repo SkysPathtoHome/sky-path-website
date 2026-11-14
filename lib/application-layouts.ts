@@ -323,12 +323,12 @@ export const ADOPT_LAYOUT = [
     ],
   },
   {
-    title: "Virtual Home Visit Acknowledgment & Agreement",
+    title: "Virtual and/or In-Home Visit Acknowledgment & Agreement",
     items: [
       {
         key: "agreesToVirtualHomeVisit",
         label:
-          "Do you agree to schedule a virtual home visit and, if requested, provide additional photos or videos of your home's interior, exterior, yard, and fencing as part of the adoption process?",
+          "Do you agree to participate in a virtual home visit and/or in-home visit as part of the adoption process and, if requested, provide additional photos or videos of your home's interior, exterior, yard, and fencing?",
         options: YES_NO,
       },
     ],

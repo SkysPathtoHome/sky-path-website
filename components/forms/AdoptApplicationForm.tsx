@@ -825,10 +825,10 @@ function AdoptApplicationFormInner() {
       </div>
 
       <div className="space-y-4">
-        <SectionHeading>Virtual Home Visit Acknowledgment &amp; Agreement</SectionHeading>
+        <SectionHeading>Virtual and/or In-Home Visit Acknowledgment &amp; Agreement</SectionHeading>
         <YesNoField
           name="agreesToVirtualHomeVisit"
-          label="Do you agree to schedule a virtual home visit and, if requested, provide additional photos or videos of your home’s interior, exterior, yard, and fencing as part of the adoption process?"
+          label="Do you agree to participate in a virtual home visit and/or in-home visit as part of the adoption process and, if requested, provide additional photos or videos of your home’s interior, exterior, yard, and fencing?"
           value={form.agreesToVirtualHomeVisit}
           onChange={(v) => update("agreesToVirtualHomeVisit", v)}
           required

@@ -71,6 +71,25 @@ export default function AdminSubmissionsPage() {
     await reload();
   }
 
+  // Only offered on the Archived tab, the same rule as the per-submission
+  // "Delete permanently" button.
+  async function deleteSelected() {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const what = ids.length === 1 ? "this submission" : `these ${ids.length} submissions`;
+    if (!window.confirm(`Permanently delete ${what}? This cannot be undone.`)) return;
+    setBulkBusy(true);
+    const { error } = await supabase.from("submissions").delete().in("id", ids);
+    setBulkBusy(false);
+    if (error) {
+      window.alert(`Could not delete those submissions: ${error.message}`);
+      return;
+    }
+    setSelectedIds(new Set());
+    setExpanded(null);
+    await reload();
+  }
+
   function toggleSelected(id: string) {
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -210,6 +229,16 @@ export default function AdminSubmissionsPage() {
                       Mark {status.replace("_", " ")}
                     </button>
                   ))}
+                  {filter === "archived" && (
+                    <button
+                      type="button"
+                      disabled={bulkBusy}
+                      onClick={deleteSelected}
+                      className="text-xs font-medium text-red-700 hover:underline disabled:text-brand-charcoal/50 disabled:no-underline"
+                    >
+                      Delete permanently
+                    </button>
+                  )}
                   <button
                     type="button"
                     disabled={bulkBusy}
@@ -222,7 +251,9 @@ export default function AdminSubmissionsPage() {
             </>
           ) : (
             <span className="text-sm text-brand-charcoal/60">
-              Select submissions to change their status in bulk.
+              {filter === "archived"
+                ? "Select submissions to change their status or delete several at once."
+                : "Select submissions to change their status in bulk."}
             </span>
           )}
         </div>

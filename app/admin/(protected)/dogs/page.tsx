@@ -160,10 +160,11 @@ export default function AdminDogsPage() {
                 <tr key={dog.id} className={busyId === dog.id ? "opacity-50" : ""}>
                   <td className="px-4 py-3 font-medium text-brand-charcoal">{dog.name}</td>
                   <td className="px-4 py-3">
-                    {/* Each badge stays on one line; when the column is narrow
-                        the badges stack with a gap instead of a label wrapping
-                        inside its own pill. */}
-                    <div className="flex flex-wrap items-center gap-1.5">
+                    {/* Each badge stays on one line. Status (and Hidden) sit on
+                        the first line; Featured always goes on its own line
+                        underneath so the column reads the same on every row. */}
+                    <div className="flex flex-col items-start gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                       <span
                         className={`inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium leading-none ${statusStyles[dog.status]}`}
                       >
@@ -174,6 +175,7 @@ export default function AdminDogsPage() {
                           Hidden
                         </span>
                       )}
+                      </div>
                       {dog.featured && (
                         <span className="inline-flex items-center whitespace-nowrap rounded-full bg-brand-purple/10 px-2.5 py-1 text-xs font-medium leading-none text-brand-purple">
                           Featured

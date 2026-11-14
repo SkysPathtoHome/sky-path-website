@@ -15,7 +15,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const GITHUB_REPO = "gregorytrent11/sky-path-website";
+const GITHUB_REPO = "SkysPathtoHome/sky-path-website";
 const GITHUB_WORKFLOW = "deploy.yml";
 
 const ALLOWED_ORIGINS = new Set([

@@ -8,7 +8,6 @@ import { triggerDeploy } from "@/lib/trigger-deploy";
 import { removeDogMediaObjects } from "@/lib/storage-cleanup";
 import type { Dog, DogStatus } from "@/types/database";
 import { FEATURED_STATUSES, MAX_FEATURED_DOGS, showsOnHomepage } from "@/lib/featured";
-import { archiveOverflowStories } from "@/lib/success-stories";
 
 const statusStyles: Record<DogStatus, string> = {
   draft: "bg-brand-gray text-brand-charcoal",
@@ -66,32 +65,10 @@ export default function AdminDogsPage() {
     triggerDeploy();
   }
 
-  async function archiveDog(dog: Dog) {
-    // A success story only shows on the website while its dog is Adopted, so
-    // say so before archiving takes a live story down.
-    const storyIsLive =
-      dog.status === "adopted" &&
-      dog.is_visible &&
-      dog.success_story_status === "published" &&
-      !!dog.success_story?.trim();
-    if (
-      storyIsLive &&
-      !window.confirm(
-        `Archive ${dog.name}? ${dog.name}'s success story will come off the website. It is kept, and comes back if ${dog.name} is marked Adopted again.`
-      )
-    ) {
-      return;
-    }
-    await setStatus(dog.id, "archived");
-  }
-
   async function markAdopted(id: string) {
     setBusyId(id);
     // An adopted dog is no longer "available", so it gives up its featured slot.
     await supabase.from("dogs").update({ status: "adopted", featured: false }).eq("id", id);
-    // A dog coming back from the archive can bring a published story with it;
-    // keep the website within its story limit.
-    await archiveOverflowStories();
     setBusyId(null);
     triggerDeploy();
     // Send the admin straight to the edit form, where a success story can
@@ -284,7 +261,7 @@ export default function AdminDogsPage() {
                           <button
                             type="button"
                             disabled={busyId === dog.id}
-                            onClick={() => archiveDog(dog)}
+                            onClick={() => setStatus(dog.id, "archived")}
                             className="text-brand-charcoal/70 hover:underline"
                           >
                             Archive
@@ -295,7 +272,7 @@ export default function AdminDogsPage() {
                         <button
                           type="button"
                           disabled={busyId === dog.id}
-                          onClick={() => archiveDog(dog)}
+                          onClick={() => setStatus(dog.id, "archived")}
                           className="text-brand-charcoal/70 hover:underline"
                         >
                           Archive

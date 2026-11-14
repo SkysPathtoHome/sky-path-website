@@ -6,7 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import type { Dog } from "@/types/database";
 import { toPlainText } from "@/components/RichText";
-import { HOMEPAGE_SUCCESS_STORIES } from "@/lib/success-stories";
+import { HOMEPAGE_SUCCESS_STORIES, STORY_DOG_STATUSES } from "@/lib/success-stories";
 
 export default function SuccessStoriesPreview() {
   const [dogs, setDogs] = useState<Dog[] | null>(null);
@@ -16,7 +16,7 @@ export default function SuccessStoriesPreview() {
     supabase
       .from("dogs")
       .select("*")
-      .eq("status", "adopted")
+      .in("status", STORY_DOG_STATUSES)
       .eq("success_story_status", "published")
       .not("success_story", "is", null)
       .order("updated_at", { ascending: false })

@@ -5,7 +5,7 @@ import CroppedPhoto from "@/components/dogs/CroppedPhoto";
 import { supabase } from "@/lib/supabase/client";
 import type { Dog } from "@/types/database";
 import RichText from "@/components/RichText";
-import { MAX_SUCCESS_STORIES } from "@/lib/success-stories";
+import { MAX_SUCCESS_STORIES, STORY_DOG_STATUSES } from "@/lib/success-stories";
 
 export default function SuccessStoriesListClient() {
   const [dogs, setDogs] = useState<Dog[] | null>(null);
@@ -16,7 +16,7 @@ export default function SuccessStoriesListClient() {
     supabase
       .from("dogs")
       .select("*")
-      .eq("status", "adopted")
+      .in("status", STORY_DOG_STATUSES)
       .eq("success_story_status", "published")
       .not("success_story", "is", null)
       .order("updated_at", { ascending: false })

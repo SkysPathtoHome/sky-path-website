@@ -8,6 +8,7 @@ import { toPlainText } from "@/components/RichText";
 import {
   HOMEPAGE_SUCCESS_STORIES,
   MAX_SUCCESS_STORIES,
+  STORY_DOG_STATUSES,
   archiveOverflowStories,
 } from "@/lib/success-stories";
 
@@ -30,7 +31,7 @@ export default function AdminSuccessStoriesPage() {
     const { data } = await supabase
       .from("dogs")
       .select("*")
-      .eq("status", "adopted")
+      .in("status", STORY_DOG_STATUSES)
       .in("success_story_status", ["published", "archived"])
       .not("success_story", "is", null)
       .order("updated_at", { ascending: false });
@@ -182,7 +183,8 @@ export default function AdminSuccessStoriesPage() {
       <p className="mt-3 text-sm text-brand-charcoal/70">
         The website shows up to {MAX_SUCCESS_STORIES} stories, and the homepage shows the{" "}
         {HOMEPAGE_SUCCESS_STORIES} most recent. When another story is published, the oldest one
-        moves to the Archive tab. To write a story, open an adopted dog from the Dogs page.
+        moves to the Archive tab. To write a story, open an adopted dog from the Dogs page. Archiving a dog on the Dogs page
+        does not change its story; whether a story shows is decided here.
       </p>
 
       {notice && (

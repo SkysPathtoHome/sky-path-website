@@ -1,10 +1,16 @@
 import { supabase } from "@/lib/supabase/client";
+import type { DogStatus } from "@/types/database";
 
 // At most this many success stories are published on the site at once; the
 // rescue's social media pages carry the full history. Publishing one more
 // moves the oldest to the archive (Admin > Success Stories), and the public
 // page never lists more.
 export const MAX_SUCCESS_STORIES = 10;
+
+// A success story belongs to a dog that has been adopted. Archiving that dog
+// (Admin > Dogs > Archive) only tidies the admin list -- its story stays under
+// the control of Admin > Success Stories, so both statuses carry stories.
+export const STORY_DOG_STATUSES: DogStatus[] = ["adopted", "archived"];
 
 // The homepage shows only the most recent few, with a button to the full page.
 export const HOMEPAGE_SUCCESS_STORIES = 4;
@@ -21,7 +27,7 @@ export async function archiveOverflowStories(): Promise<{
   const { data, error } = await supabase
     .from("dogs")
     .select("id, name, success_story")
-    .eq("status", "adopted")
+    .in("status", STORY_DOG_STATUSES)
     .eq("is_visible", true)
     .eq("success_story_status", "published")
     .not("success_story", "is", null)

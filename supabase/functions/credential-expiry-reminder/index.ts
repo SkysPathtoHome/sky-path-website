@@ -8,7 +8,7 @@
 // input, and all it can ever do is send the reminder that is already due,
 // once per step, to the fixed inbox below.
 //
-// Test mode: a signed-in admin (Settings -> "Send a test reminder") posts
+// Test mode: a signed-in Admin (Settings -> "Send a test reminder") posts
 // { "test": true }. That sends the same email, marked TEST, for every
 // tracked credential regardless of its date, and stamps nothing. It needs a
 // real admin session, not just the anon key, so it can't be used from
@@ -155,6 +155,12 @@ Deno.serve(async (req) => {
     );
     const { data: caller, error: callerError } = await callerClient.auth.getUser();
     if (callerError || !caller?.user) return json({ error: "Unauthorized" }, 401);
+    const { data: staff } = await db
+      .from("staff")
+      .select("role")
+      .eq("user_id", caller.user.id)
+      .maybeSingle();
+    if (staff?.role !== "admin") return json({ error: "Unauthorized" }, 403);
 
     const { data: all, error: allError } = await db
       .from("credential_expirations")

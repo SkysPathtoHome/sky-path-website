@@ -4,8 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase/client";
-import { useAdminSession } from "@/lib/supabase/auth";
+import { NOT_STAFF_KEY, useAdminSession } from "@/lib/supabase/auth";
 import { siteConfig } from "@/lib/site-config";
+
+const NOT_STAFF_MESSAGE =
+  "That Microsoft account isn't set up as Sky's Path staff. An admin needs to add you to the Sky's Path Admins or Sky's Path Support group in Microsoft 365.";
+
+// How long the Sign in button waits for the staff list to be brought up to
+// date before going to Microsoft anyway.
+const SYNC_WAIT_MS = 6000;
 
 // Microsoft sends a failed sign-in back to this page with the reason in the
 // query string or the fragment, depending on where it failed.
@@ -16,7 +23,7 @@ function readSignInError(): string | null {
     if (!params.get("error") && !params.get("error_code")) continue;
     const detail = (params.get("error_description") ?? "").toLowerCase();
     if (params.get("error_code") === "signup_disabled" || detail.includes("signups not allowed")) {
-      return "That Microsoft account isn't on the admin list. Ask another admin to add you under Settings.";
+      return NOT_STAFF_MESSAGE;
     }
     return "Microsoft sign-in didn't finish. Please try again.";
   }
@@ -40,6 +47,16 @@ export default function AdminLoginPage() {
   }, []);
 
   useEffect(() => {
+    // Microsoft let them in, but they are in neither staff group, so the
+    // session was ended (see resolveState in lib/supabase/auth.ts).
+    if (state === "anonymous" && sessionStorage.getItem(NOT_STAFF_KEY)) {
+      sessionStorage.removeItem(NOT_STAFF_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setError(NOT_STAFF_MESSAGE);
+    }
+  }, [state]);
+
+  useEffect(() => {
     if (state === "authenticated") {
       router.replace("/admin/");
     }
@@ -48,6 +65,13 @@ export default function AdminLoginPage() {
   async function handleMicrosoftSignIn() {
     setError(null);
     setSubmitting(true);
+    // Bring the staff list up to date with Microsoft 365 first, so someone
+    // added to a staff group a moment ago gets in on this attempt. If that
+    // is slow or fails, carry on: the list is refreshed every minute anyway.
+    await Promise.race([
+      supabase.functions.invoke("sync-staff", { body: {} }).catch(() => null),
+      new Promise((resolve) => setTimeout(resolve, SYNC_WAIT_MS)),
+    ]);
     const { error: signInError } = await supabase.auth.signInWithOAuth({
       provider: "azure",
       options: {

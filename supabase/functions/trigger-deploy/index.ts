@@ -50,8 +50,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers });
   }
 
-  // Only a signed-in admin (any authenticated Supabase user, matching the
-  // rest of this app's model) can trigger a rebuild -- never anon.
+  // Only signed-in staff (Admin or Support) can trigger a rebuild -- never
+  // anon, and never an account that is no longer in a staff group.
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
@@ -63,6 +63,16 @@ Deno.serve(async (req) => {
   } = await supabase.auth.getUser();
   if (authError || !user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers });
+  }
+  // public.staff lets a person read only their own row, so a row coming
+  // back means they are staff.
+  const { data: staff } = await supabase
+    .from("staff")
+    .select("role")
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!staff) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 403, headers });
   }
 
   const githubToken = Deno.env.get("GITHUB_DEPLOY_TOKEN");

@@ -1,15 +1,23 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { useAdminSession } from "@/lib/supabase/auth";
-import type { CredentialExpiration } from "@/types/database";
+import type { CredentialExpiration, Staff, StaffSyncState } from "@/types/database";
 
-interface AdminUser {
-  id: string;
-  email: string | null;
-  created_at: string;
-  last_sign_in_at: string | null;
+const ROLE_LABELS: Record<Staff["role"], string> = { admin: "Admin", support: "Support" };
+
+// The check runs every minute; several misses in a row means it is stuck.
+const SYNC_STALE_MS = 10 * 60 * 1000;
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 // expires_on is a plain date; pin it to UTC so it doesn't shift a day in
@@ -53,41 +61,51 @@ function formatDate(value: string | null): string {
 }
 
 export default function AdminSettingsPage() {
-  const { session } = useAdminSession();
+  const router = useRouter();
+  const { session, role } = useAdminSession();
 
-  const [admins, setAdmins] = useState<AdminUser[] | null>(null);
-  const [adminsError, setAdminsError] = useState<string | null>(null);
-  const [newEmail, setNewEmail] = useState("");
-  const [addBusy, setAddBusy] = useState(false);
-  const [addError, setAddError] = useState<string | null>(null);
-  const [addedEmail, setAddedEmail] = useState<string | null>(null);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [staff, setStaff] = useState<Staff[] | null>(null);
+  const [staffError, setStaffError] = useState<string | null>(null);
+  const [syncState, setSyncState] = useState<StaffSyncState | null>(null);
+  const [syncStale, setSyncStale] = useState(false);
   const [expirations, setExpirations] = useState<CredentialExpiration[]>([]);
   const [testBusy, setTestBusy] = useState(false);
   const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
-  async function loadAdmins() {
-    setAdminsError(null);
-    const { data, error: invokeError } = await supabase.functions.invoke("manage-admins", {
-      body: { action: "list" },
-    });
-    if (invokeError || !data || data.error) {
-      setAdminsError(data?.error ?? invokeError?.message ?? "Could not load admins.");
-      return;
-    }
-    setAdmins(data.admins);
-  }
+  // Settings is for Admins. The menu hides it from Support and the database
+  // refuses them the data; this sends them back if they type the address.
+  useEffect(() => {
+    if (role === "support") router.replace("/admin/");
+  }, [role, router]);
 
   useEffect(() => {
-    // Initial external data fetch on mount, not derived state.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadAdmins();
+    if (role !== "admin") return;
+    supabase
+      .from("staff")
+      .select("*")
+      .order("role")
+      .order("email")
+      .then(({ data, error }) => {
+        if (error) setStaffError("Could not load the staff list.");
+        else setStaff(data ?? []);
+      });
+    supabase
+      .from("staff_sync_state")
+      .select("*")
+      .maybeSingle()
+      .then(({ data }) => {
+        setSyncState(data);
+        setSyncStale(
+          !!data &&
+            (!data.last_ok_at || Date.now() - Date.parse(data.last_ok_at) > SYNC_STALE_MS)
+        );
+      });
     supabase
       .from("credential_expirations")
       .select("*")
       .order("expires_on")
       .then(({ data }) => setExpirations(data ?? []));
-  }, []);
+  }, [role]);
 
   async function handleSendTestReminder() {
     setTestResult(null);
@@ -104,51 +122,11 @@ export default function AdminSettingsPage() {
     setTestResult({ ok: true, text: `Test reminder sent to ${data.to}.` });
   }
 
-  async function handleAdd(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setAddError(null);
-    setAddedEmail(null);
+  if (role !== "admin") return null;
 
-    const email = newEmail.trim().toLowerCase();
-    setAddBusy(true);
-    const { data, error: invokeError } = await supabase.functions.invoke("manage-admins", {
-      body: { action: "add", email },
-    });
-    setAddBusy(false);
-    if (invokeError || !data || data.error) {
-      // A refusal from the function arrives as invokeError with the reason
-      // in the response body, not in `data`.
-      let reason: string | undefined = data?.error;
-      const response = (invokeError as { context?: Response } | null)?.context;
-      if (!reason && response) {
-        reason = await response
-          .json()
-          .then((body: { error?: string }) => body.error)
-          .catch(() => undefined);
-      }
-      setAddError(reason ?? invokeError?.message ?? "Could not add that admin.");
-      return;
-    }
-    setNewEmail("");
-    setAddedEmail(email);
-    await loadAdmins();
-  }
-
-  async function handleDeleteAdmin(admin: AdminUser) {
-    if (!window.confirm(`Are you sure you want to delete ${admin.email}?`)) return;
-
-    setAdminsError(null);
-    setDeletingId(admin.id);
-    const { data, error: invokeError } = await supabase.functions.invoke("manage-admins", {
-      body: { action: "delete", userId: admin.id },
-    });
-    setDeletingId(null);
-    if (invokeError || !data || data.error) {
-      setAdminsError(data?.error ?? invokeError?.message ?? "Could not delete admin.");
-      return;
-    }
-    await loadAdmins();
-  }
+  const syncProblem =
+    syncState?.last_error ??
+    (syncStale ? "The check against Microsoft 365 has not completed recently." : null);
 
   return (
     <div>
@@ -157,7 +135,7 @@ export default function AdminSettingsPage() {
       <div className="mt-6 max-w-lg rounded-xl border border-brand-soft-blue/60 bg-brand-white p-6">
         <h2 className="font-heading text-lg font-semibold text-brand-deep-blue">Sign-in</h2>
         <p className="mt-3 text-sm text-brand-charcoal">
-          Admins sign in with their Sky&rsquo;s Path Microsoft account. Passwords and the second
+          Staff sign in with their Sky&rsquo;s Path Microsoft account. Passwords and the second
           sign-in step are managed by Microsoft, not on this site.
         </p>
         {expirations.length > 0 && (
@@ -204,82 +182,62 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="mt-6 max-w-lg rounded-xl border border-brand-soft-blue/60 bg-brand-white p-6">
-        <h2 className="font-heading text-lg font-semibold text-brand-deep-blue">Admins</h2>
+        <h2 className="font-heading text-lg font-semibold text-brand-deep-blue">Staff</h2>
+        <p className="mt-3 text-sm text-brand-charcoal">
+          Staff are managed in Microsoft 365, not on this site. Add a person to the{" "}
+          <strong>Sky&rsquo;s Path Admins</strong> or <strong>Sky&rsquo;s Path Support</strong>{" "}
+          group and they can sign in within a minute. Remove them from the group, or block their
+          sign-in, and their access ends within a minute.
+        </p>
+        <p className="mt-2 text-sm text-brand-charcoal">
+          Admins can do everything. Support can do everything except this Settings page.
+        </p>
 
-        {adminsError && (
+        {staffError && (
           <p role="alert" className="mt-3 text-sm text-red-700">
-            {adminsError}
+            {staffError}
           </p>
         )}
 
-        {!admins ? (
-          <p className="mt-3 text-sm text-brand-charcoal/80">Loading…</p>
+        {!staff ? (
+          !staffError && <p className="mt-3 text-sm text-brand-charcoal/80">Loading…</p>
         ) : (
           <ul className="mt-4 divide-y divide-brand-soft-blue/40">
-            {admins.map((admin) => {
-              const isSelf = admin.id === session?.user.id;
-              return (
-                <li key={admin.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                  <span className="text-brand-charcoal">
-                    {admin.email}
-                    {isSelf && <span className="ml-1 text-xs text-brand-charcoal/60">(you)</span>}
-                  </span>
-                  <span className="flex items-center gap-3 text-xs text-brand-charcoal/60">
-                    Added {formatDate(admin.created_at)} &middot; Last sign-in{" "}
-                    {formatDate(admin.last_sign_in_at)}
-                    {!isSelf && (
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteAdmin(admin)}
-                        disabled={deletingId === admin.id}
-                        className="font-medium text-red-700 hover:underline disabled:opacity-60"
-                      >
-                        {deletingId === admin.id ? "Deleting…" : "Delete"}
-                      </button>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
+            {staff.map((person) => (
+              <li
+                key={person.user_id}
+                className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm"
+              >
+                <span className="text-brand-charcoal">
+                  {person.display_name ?? person.email}
+                  {person.user_id === session?.user.id && (
+                    <span className="ml-1 text-xs text-brand-charcoal/60">(you)</span>
+                  )}
+                  {person.display_name && (
+                    <span className="block text-xs text-brand-charcoal/60">{person.email}</span>
+                  )}
+                </span>
+                <span className="text-xs text-brand-charcoal/60">
+                  <span className="font-medium text-brand-charcoal">{ROLE_LABELS[person.role]}</span>{" "}
+                  &middot; Last sign-in {formatDate(person.last_sign_in_at)}
+                </span>
+              </li>
+            ))}
           </ul>
         )}
 
-        <form onSubmit={handleAdd} className="mt-6 space-y-3 border-t border-brand-soft-blue/40 pt-4">
-          <div>
-            <label htmlFor="new-admin-email" className="block text-sm font-medium text-brand-charcoal">
-              Add an admin
-            </label>
-            <input
-              id="new-admin-email"
-              type="email"
-              required
-              autoComplete="email"
-              placeholder="name@skyspath.com"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              className="mt-1 block w-full rounded-md border border-brand-soft-blue bg-brand-white px-3 py-2 text-sm text-brand-charcoal shadow-sm focus:border-brand-purple focus:outline-none focus:ring-1 focus:ring-brand-purple"
-            />
-            <p className="mt-1 text-xs text-brand-charcoal/60">
-              Enter their skyspath.com address. No email is sent: once added, they go to the Staff
-              Login page and sign in with Microsoft.
+        {syncProblem ? (
+          <p role="alert" className="mt-4 text-xs text-red-700">
+            {syncProblem} The list above is the last one confirmed
+            {syncState?.last_ok_at ? ` (${formatDateTime(syncState.last_ok_at)})` : ""}.
+          </p>
+        ) : (
+          syncState?.last_ok_at && (
+            <p className="mt-4 text-xs text-brand-charcoal/60">
+              Last checked against Microsoft 365: {formatDateTime(syncState.last_ok_at)}
             </p>
-          </div>
-          {addedEmail && (
-            <p className="text-sm text-green-700">{addedEmail} can now sign in with Microsoft.</p>
-          )}
-          {addError && (
-            <p role="alert" className="text-sm text-red-700">
-              {addError}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={addBusy}
-            className="rounded-full bg-brand-purple px-5 py-2 text-sm font-semibold text-brand-white shadow-sm hover:bg-brand-deep-blue disabled:opacity-60"
-          >
-            {addBusy ? "Adding…" : "Add Admin"}
-          </button>
-        </form>
+          )
+        )}
       </div>
     </div>
   );

@@ -5,6 +5,13 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase/client";
 
 export type SessionState = "loading" | "authenticated" | "anonymous";
+// Decided by Microsoft 365 groups (Sky's Path Admins / Sky's Path Support)
+// and copied into public.staff by the sync-staff function.
+export type StaffRole = "admin" | "support";
+
+// Set when a Microsoft sign-in worked but the person is in neither staff
+// group, so the Staff Login page can say why they are back there.
+export const NOT_STAFF_KEY = "admin_not_staff";
 
 // Caps how long an admin stays signed in, independent of Supabase's normal
 // token auto-refresh (which would otherwise keep a session alive
@@ -37,10 +44,14 @@ async function startedWithMicrosoft(): Promise<boolean> {
   );
 }
 
-async function resolveState(session: Session | null): Promise<SessionState> {
+type Resolved = { state: SessionState; role: StaffRole | null };
+
+const ANONYMOUS: Resolved = { state: "anonymous", role: null };
+
+async function resolveState(session: Session | null): Promise<Resolved> {
   if (!session) {
     localStorage.removeItem(SESSION_STARTED_KEY);
-    return "anonymous";
+    return ANONYMOUS;
   }
 
   if (!localStorage.getItem(SESSION_STARTED_KEY)) {
@@ -49,15 +60,34 @@ async function resolveState(session: Session | null): Promise<SessionState> {
   if (isSessionExpired() || !(await startedWithMicrosoft())) {
     localStorage.removeItem(SESSION_STARTED_KEY);
     await supabase.auth.signOut();
-    return "anonymous";
+    return ANONYMOUS;
   }
 
-  return "authenticated";
+  // A staff member can read exactly one row of public.staff: their own.
+  // No row means Microsoft 365 no longer (or never did) list them in a
+  // staff group. The database already refuses them everything; this just
+  // makes the pages say so instead of showing empty screens.
+  const { data: staff, error } = await supabase
+    .from("staff")
+    .select("role")
+    .eq("user_id", session.user.id)
+    .maybeSingle();
+  if (!error && !staff) {
+    localStorage.removeItem(SESSION_STARTED_KEY);
+    sessionStorage.setItem(NOT_STAFF_KEY, "1");
+    await supabase.auth.signOut();
+    return ANONYMOUS;
+  }
+
+  // If the lookup itself failed (a network blip), stay signed in at the
+  // lower level rather than bounce a working admin to the login page.
+  return { state: "authenticated", role: staff?.role ?? "support" };
 }
 
 export function useAdminSession() {
   const [session, setSession] = useState<Session | null>(null);
   const [state, setState] = useState<SessionState>("loading");
+  const [role, setRole] = useState<StaffRole | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,8 +95,9 @@ export function useAdminSession() {
     supabase.auth.getSession().then(async ({ data }) => {
       const resolved = await resolveState(data.session);
       if (cancelled) return;
-      setSession(resolved === "authenticated" ? data.session : null);
-      setState(resolved);
+      setSession(resolved.state === "authenticated" ? data.session : null);
+      setRole(resolved.role);
+      setState(resolved.state);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -80,18 +111,23 @@ export function useAdminSession() {
       setTimeout(() => {
         resolveState(newSession).then((resolved) => {
           if (cancelled) return;
-          setSession(resolved === "authenticated" ? newSession : null);
-          setState(resolved);
+          setSession(resolved.state === "authenticated" ? newSession : null);
+          setRole(resolved.role);
+          setState(resolved.state);
         });
       }, 0);
     });
 
-    // Catches a tab left open past the 8-hour mark with no other auth
-    // event to trigger a recheck.
-    const interval = setInterval(() => {
-      if (isSessionExpired()) {
-        supabase.auth.signOut();
-      }
+    // Catches a tab left open past the 8-hour mark, or left open after the
+    // person was taken out of the staff groups (or moved between them),
+    // with no other auth event to trigger a recheck. resolveState signs
+    // them out itself when either is the case.
+    const interval = setInterval(async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+      const resolved = await resolveState(data.session);
+      if (cancelled || resolved.state !== "authenticated") return;
+      setRole(resolved.role);
     }, RECHECK_INTERVAL_MS);
 
     return () => {
@@ -101,5 +137,5 @@ export function useAdminSession() {
     };
   }, []);
 
-  return { session, state };
+  return { session, state, role };
 }

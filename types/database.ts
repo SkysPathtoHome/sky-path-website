@@ -132,6 +132,26 @@ export type CredentialExpiration = {
   created_at: string;
 };
 
+// Who is staff and at which level. Written only by the sync-staff edge
+// function, from the two Microsoft 365 staff groups.
+export type Staff = {
+  user_id: string;
+  entra_oid: string | null;
+  email: string;
+  display_name: string | null;
+  role: "admin" | "support";
+  last_sign_in_at: string | null;
+  synced_at: string | null;
+  created_at: string;
+};
+
+export type StaffSyncState = {
+  id: number;
+  last_run_at: string | null;
+  last_ok_at: string | null;
+  last_error: string | null;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -166,6 +186,18 @@ export type Database = {
         Insert: Partial<CredentialExpiration> &
           Pick<CredentialExpiration, "name" | "renew_steps" | "expires_on">;
         Update: Partial<CredentialExpiration>;
+        Relationships: [];
+      };
+      staff: {
+        Row: Staff;
+        Insert: Partial<Staff> & Pick<Staff, "user_id" | "email" | "role">;
+        Update: Partial<Staff>;
+        Relationships: [];
+      };
+      staff_sync_state: {
+        Row: StaffSyncState;
+        Insert: Partial<StaffSyncState>;
+        Update: Partial<StaffSyncState>;
         Relationships: [];
       };
     };

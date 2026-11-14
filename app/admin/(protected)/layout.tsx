@@ -6,13 +6,15 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import { useAdminSession } from "@/lib/supabase/auth";
 
-const navItems = [
+const navItems: { label: string; href: string; adminOnly?: boolean }[] = [
   { label: "Dashboard", href: "/admin/" },
   { label: "Dogs", href: "/admin/dogs/" },
   { label: "Success Stories", href: "/admin/success-stories/" },
   { label: "Events", href: "/admin/events/" },
   { label: "Submissions", href: "/admin/submissions/" },
-  { label: "Settings", href: "/admin/settings/" },
+  // Admins only; Support never sees it (and the database refuses them the
+  // data behind it).
+  { label: "Settings", href: "/admin/settings/", adminOnly: true },
 ];
 
 const SUBMISSIONS_PATH = "/admin/submissions/";
@@ -20,7 +22,7 @@ const SUBMISSIONS_PATH = "/admin/submissions/";
 export default function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { state, session } = useAdminSession();
+  const { state, session, role } = useAdminSession();
   const [newSubmissionCount, setNewSubmissionCount] = useState(0);
 
   useEffect(() => {
@@ -52,7 +54,7 @@ export default function AdminProtectedLayout({ children }: { children: React.Rea
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 md:flex-row">
       <aside className="shrink-0 md:w-56">
         <nav aria-label="Admin" className="flex flex-row gap-1 overflow-x-auto md:flex-col">
-          {navItems.map((item) => {
+          {navItems.filter((item) => !item.adminOnly || role === "admin").map((item) => {
             const active = pathname === item.href;
             return (
               <Link

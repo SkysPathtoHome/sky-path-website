@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase/client";
 import { triggerDeploy } from "@/lib/trigger-deploy";
 import { removeDogMediaObjects } from "@/lib/storage-cleanup";
 import type { Dog, DogStatus } from "@/types/database";
+import SelectionBar, { bulkActionClass, bulkDangerClass } from "@/components/admin/SelectionBar";
 import { FEATURED_STATUSES, MAX_FEATURED_DOGS, showsOnHomepage } from "@/lib/featured";
 
 const statusStyles: Record<DogStatus, string> = {
@@ -37,6 +38,10 @@ export default function AdminDogsPage() {
   const current = dogs ? dogs.filter((d) => d.status !== "archived") : [];
   const archive = dogs ? dogs.filter((d) => d.status === "archived") : [];
   const rows = tab === "archive" ? archive : current;
+  // Selection only ever covers the rows on screen under the current tab.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const selectedRows = rows.filter((d) => selectedIds.has(d.id));
   const featuredCount = dogs ? dogs.filter(showsOnHomepage).length : 0;
   // Flagged but not showing (adopted, archived, draft or hidden) -- so the
   // admin understands why the homepage has fewer than the flagged total.
@@ -62,6 +67,83 @@ export default function AdminDogsPage() {
     await supabase.from("dogs").update({ status }).eq("id", id);
     await reload();
     setBusyId(null);
+    triggerDeploy();
+  }
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds(
+      selectedRows.length === rows.length ? new Set() : new Set(rows.map((d) => d.id))
+    );
+  }
+
+  async function archiveSelected() {
+    const picked = selectedRows;
+    if (picked.length === 0) return;
+    const what = picked.length === 1 ? picked[0].name : `${picked.length} dogs`;
+    if (
+      !window.confirm(
+        `Archive ${what}? Archived dogs move to the Archive tab and no longer have a page on the website. Success stories are not affected.`
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    // An archived dog is no longer "available", so it gives up its featured slot.
+    const { error } = await supabase
+      .from("dogs")
+      .update({ status: "archived", featured: false })
+      .in(
+        "id",
+        picked.map((d) => d.id)
+      );
+    setBulkBusy(false);
+    if (error) {
+      window.alert(`Could not archive those dogs: ${error.message}`);
+      return;
+    }
+    setSelectedIds(new Set());
+    await reload();
+    triggerDeploy();
+  }
+
+  async function deleteSelected() {
+    const picked = selectedRows;
+    if (picked.length === 0) return;
+    const what = picked.length === 1 ? picked[0].name : `${picked.length} dogs`;
+    if (
+      !window.confirm(
+        `Delete ${what}? This also removes their photos and success stories and cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setBulkBusy(true);
+    // Photos first: dog_media rows cascade away with the dog, and with them
+    // the record of which Storage files were hers.
+    for (const dog of picked) await removeDogMediaObjects(dog.id);
+    const { error } = await supabase
+      .from("dogs")
+      .delete()
+      .in(
+        "id",
+        picked.map((d) => d.id)
+      );
+    setBulkBusy(false);
+    if (error) {
+      window.alert(`Could not delete those dogs: ${error.message}`);
+      return;
+    }
+    setSelectedIds(new Set());
+    await reload();
     triggerDeploy();
   }
 
@@ -163,7 +245,10 @@ export default function AdminDogsPage() {
               type="button"
               role="tab"
               aria-selected={tab === key}
-              onClick={() => setTab(key)}
+              onClick={() => {
+                setTab(key);
+                setSelectedIds(new Set());
+              }}
               className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-semibold ${
                 tab === key
                   ? "border-brand-purple text-brand-purple"
@@ -181,10 +266,35 @@ export default function AdminDogsPage() {
               : "No dogs here. Archived dogs are on the Archive tab."}
           </p>
         ) : (
+        <>
+        <SelectionBar
+          total={rows.length}
+          selectedCount={selectedRows.length}
+          onToggleAll={toggleAll}
+          onClear={() => setSelectedIds(new Set())}
+          busy={bulkBusy}
+          hint={
+            tab === "archive"
+              ? "Select dogs to delete several at once."
+              : "Select dogs to archive or delete several at once."
+          }
+        >
+          {tab === "current" && (
+            <button type="button" disabled={bulkBusy} onClick={archiveSelected} className={bulkActionClass}>
+              Archive
+            </button>
+          )}
+          <button type="button" disabled={bulkBusy} onClick={deleteSelected} className={bulkDangerClass}>
+            Delete
+          </button>
+        </SelectionBar>
         <div className="mt-3 overflow-x-auto rounded-xl border border-brand-soft-blue/60">
           <table className="min-w-full divide-y divide-brand-soft-blue/60 bg-brand-white text-sm">
             <thead className="bg-brand-gray/50 text-left text-xs uppercase tracking-wide text-brand-charcoal/80">
               <tr>
+                <th className="w-px py-3 pl-4">
+                  <span className="sr-only">Select</span>
+                </th>
                 <th className="px-4 py-3">Name</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3">Breed</th>
@@ -194,6 +304,14 @@ export default function AdminDogsPage() {
             <tbody className="divide-y divide-brand-soft-blue/30">
               {rows.map((dog) => (
                 <tr key={dog.id} className={busyId === dog.id ? "opacity-50" : ""}>
+                  <td className="py-3 pl-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(dog.id)}
+                      onChange={() => toggleSelected(dog.id)}
+                      aria-label={`Select ${dog.name}`}
+                    />
+                  </td>
                   <td className="px-4 py-3 font-medium text-brand-charcoal">{dog.name}</td>
                   <td className="px-4 py-3">
                     {/* Each badge stays on one line. Status (and Hidden) sit on
@@ -370,6 +488,7 @@ export default function AdminDogsPage() {
             </tbody>
           </table>
         </div>
+        </>
         )}
         </>
       )}

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase/client";
 import type { Dog } from "@/types/database";
+import SelectionBar, { bulkActionClass, bulkDangerClass } from "@/components/admin/SelectionBar";
 import { toPlainText } from "@/components/RichText";
 import {
   HOMEPAGE_SUCCESS_STORIES,
@@ -49,6 +50,110 @@ export default function AdminSuccessStoriesPage() {
   // A hidden dog's story is published but not on the site, and doesn't take
   // one of the slots.
   const showingCount = live.filter((dog) => dog.is_visible).length;
+
+  // Selection only ever covers the rows on screen under the current tab.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const rows = tab === "live" ? live : archive;
+  const selectedRows = rows.filter((dog) => selectedIds.has(dog.id));
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelectedIds(
+      selectedRows.length === rows.length ? new Set() : new Set(rows.map((dog) => dog.id))
+    );
+  }
+
+  function countOf(n: number) {
+    return n === 1 ? "1 story" : `${n} stories`;
+  }
+
+  async function moveSelectedToArchive() {
+    const picked = selectedRows;
+    if (picked.length === 0) return;
+    setNotice(null);
+    setError(null);
+    setBulkBusy(true);
+    const { error: updateError } = await supabase
+      .from("dogs")
+      .update({ success_story_status: "archived" })
+      .in(
+        "id",
+        picked.map((dog) => dog.id)
+      );
+    if (updateError) setError(updateError.message);
+    else setNotice(`${countOf(picked.length)} moved to the archive.`);
+    setSelectedIds(new Set());
+    await reload();
+    setBulkBusy(false);
+  }
+
+  async function putSelectedBack() {
+    const picked = selectedRows;
+    if (picked.length === 0) return;
+    setNotice(null);
+    setError(null);
+    setBulkBusy(true);
+    const { error: updateError } = await supabase
+      .from("dogs")
+      .update({ success_story_status: "published" })
+      .in(
+        "id",
+        picked.map((dog) => dog.id)
+      );
+    if (updateError) {
+      setError(updateError.message);
+    } else {
+      // Back on the site as the newest stories; anything past the limit
+      // takes their place in the archive.
+      const { archived, error: archiveError } = await archiveOverflowStories();
+      if (archiveError) setError(archiveError);
+      else
+        setNotice(
+          archived.length > 0
+            ? `${countOf(picked.length)} put back on the website. To stay within ${MAX_SUCCESS_STORIES}, ${archived.join(", ")} moved to the archive.`
+            : `${countOf(picked.length)} put back on the website.`
+        );
+    }
+    setSelectedIds(new Set());
+    await reload();
+    setBulkBusy(false);
+  }
+
+  async function deleteSelectedStories() {
+    const picked = selectedRows;
+    if (picked.length === 0) return;
+    if (
+      !window.confirm(
+        `Delete ${countOf(picked.length)}? The story text will be removed and cannot be recovered. The dog records and photos are kept.`
+      )
+    ) {
+      return;
+    }
+    setNotice(null);
+    setError(null);
+    setBulkBusy(true);
+    const { error: updateError } = await supabase
+      .from("dogs")
+      .update({ success_story: null, success_story_status: "draft" })
+      .in(
+        "id",
+        picked.map((dog) => dog.id)
+      );
+    if (updateError) setError(updateError.message);
+    else setNotice(`${countOf(picked.length)} deleted.`);
+    setSelectedIds(new Set());
+    await reload();
+    setBulkBusy(false);
+  }
 
   async function moveToArchive(dog: Dog) {
     setNotice(null);
@@ -114,10 +219,41 @@ export default function AdminSuccessStoriesPage() {
 
   function storyTable(rows: Dog[], archived: boolean) {
     return (
+      <>
+      <SelectionBar
+        total={rows.length}
+        selectedCount={selectedRows.length}
+        onToggleAll={toggleAll}
+        onClear={() => setSelectedIds(new Set())}
+        busy={bulkBusy}
+        hint={
+          archived
+            ? "Select stories to put back on the website or delete several at once."
+            : "Select stories to move several to the archive at once."
+        }
+      >
+        {archived ? (
+          <>
+            <button type="button" disabled={bulkBusy} onClick={putSelectedBack} className={bulkActionClass}>
+              Put back on website
+            </button>
+            <button type="button" disabled={bulkBusy} onClick={deleteSelectedStories} className={bulkDangerClass}>
+              Delete
+            </button>
+          </>
+        ) : (
+          <button type="button" disabled={bulkBusy} onClick={moveSelectedToArchive} className={bulkActionClass}>
+            Move to archive
+          </button>
+        )}
+      </SelectionBar>
       <div className="mt-3 overflow-x-auto rounded-xl border border-brand-soft-blue/60">
         <table className="min-w-full divide-y divide-brand-soft-blue/60 bg-brand-white text-sm">
           <thead className="bg-brand-gray/50 text-left text-xs uppercase tracking-wide text-brand-charcoal/80">
             <tr>
+              <th className="w-px py-3 pl-4">
+                <span className="sr-only">Select</span>
+              </th>
               <th className="px-4 py-3">Dog</th>
               <th className="px-4 py-3">Story</th>
               <th className="px-4 py-3">Last saved</th>
@@ -127,6 +263,14 @@ export default function AdminSuccessStoriesPage() {
           <tbody className="divide-y divide-brand-soft-blue/30">
             {rows.map((dog) => (
               <tr key={dog.id} className={busyId === dog.id ? "opacity-50" : ""}>
+                <td className="py-3 pl-4">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.has(dog.id)}
+                    onChange={() => toggleSelected(dog.id)}
+                    aria-label={`Select ${dog.name}'s story`}
+                  />
+                </td>
                 <td className="whitespace-nowrap px-4 py-3 font-medium text-brand-charcoal">
                   {dog.name}
                   {!dog.is_visible && (
@@ -174,6 +318,7 @@ export default function AdminSuccessStoriesPage() {
           </tbody>
         </table>
       </div>
+      </>
     );
   }
 
@@ -214,7 +359,10 @@ export default function AdminSuccessStoriesPage() {
                 type="button"
                 role="tab"
                 aria-selected={tab === key}
-                onClick={() => setTab(key)}
+                onClick={() => {
+                  setTab(key);
+                  setSelectedIds(new Set());
+                }}
                 className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-semibold ${
                   tab === key
                     ? "border-brand-purple text-brand-purple"

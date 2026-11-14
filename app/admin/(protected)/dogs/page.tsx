@@ -8,6 +8,7 @@ import { triggerDeploy } from "@/lib/trigger-deploy";
 import { removeDogMediaObjects } from "@/lib/storage-cleanup";
 import type { Dog, DogStatus } from "@/types/database";
 import { FEATURED_STATUSES, MAX_FEATURED_DOGS, showsOnHomepage } from "@/lib/featured";
+import { archiveOverflowStories } from "@/lib/success-stories";
 
 const statusStyles: Record<DogStatus, string> = {
   draft: "bg-brand-gray text-brand-charcoal",
@@ -32,6 +33,11 @@ export default function AdminDogsPage() {
   const [dogs, setDogs] = useState<Dog[] | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [featuredError, setFeaturedError] = useState<string | null>(null);
+  const [tab, setTab] = useState<"current" | "archive">("current");
+  // Archived dogs live on their own tab so the main list stays short.
+  const current = dogs ? dogs.filter((d) => d.status !== "archived") : [];
+  const archive = dogs ? dogs.filter((d) => d.status === "archived") : [];
+  const rows = tab === "archive" ? archive : current;
   const featuredCount = dogs ? dogs.filter(showsOnHomepage).length : 0;
   // Flagged but not showing (adopted, archived, draft or hidden) -- so the
   // admin understands why the homepage has fewer than the flagged total.
@@ -60,10 +66,32 @@ export default function AdminDogsPage() {
     triggerDeploy();
   }
 
+  async function archiveDog(dog: Dog) {
+    // A success story only shows on the website while its dog is Adopted, so
+    // say so before archiving takes a live story down.
+    const storyIsLive =
+      dog.status === "adopted" &&
+      dog.is_visible &&
+      dog.success_story_status === "published" &&
+      !!dog.success_story?.trim();
+    if (
+      storyIsLive &&
+      !window.confirm(
+        `Archive ${dog.name}? ${dog.name}'s success story will come off the website. It is kept, and comes back if ${dog.name} is marked Adopted again.`
+      )
+    ) {
+      return;
+    }
+    await setStatus(dog.id, "archived");
+  }
+
   async function markAdopted(id: string) {
     setBusyId(id);
     // An adopted dog is no longer "available", so it gives up its featured slot.
     await supabase.from("dogs").update({ status: "adopted", featured: false }).eq("id", id);
+    // A dog coming back from the archive can bring a published story with it;
+    // keep the website within its story limit.
+    await archiveOverflowStories();
     setBusyId(null);
     triggerDeploy();
     // Send the admin straight to the edit form, where a success story can
@@ -145,7 +173,38 @@ export default function AdminDogsPage() {
       ) : dogs.length === 0 ? (
         <p className="mt-6 text-brand-charcoal/80">No dogs yet. Add your first one.</p>
       ) : (
-        <div className="mt-6 overflow-x-auto rounded-xl border border-brand-soft-blue/60">
+        <>
+        <div role="tablist" aria-label="Dogs" className="mt-6 flex gap-1 border-b border-brand-soft-blue/60">
+          {(
+            [
+              ["current", `Dogs (${current.length})`],
+              ["archive", `Archive (${archive.length})`],
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={tab === key}
+              onClick={() => setTab(key)}
+              className={`-mb-px rounded-t-md border-b-2 px-4 py-2 text-sm font-semibold ${
+                tab === key
+                  ? "border-brand-purple text-brand-purple"
+                  : "border-transparent text-brand-charcoal/70 hover:text-brand-charcoal"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        {rows.length === 0 ? (
+          <p className="mt-4 text-sm text-brand-charcoal/80">
+            {tab === "archive"
+              ? "Nothing in the archive yet. Use Archive on an adopted dog to move it here."
+              : "No dogs here. Archived dogs are on the Archive tab."}
+          </p>
+        ) : (
+        <div className="mt-3 overflow-x-auto rounded-xl border border-brand-soft-blue/60">
           <table className="min-w-full divide-y divide-brand-soft-blue/60 bg-brand-white text-sm">
             <thead className="bg-brand-gray/50 text-left text-xs uppercase tracking-wide text-brand-charcoal/80">
               <tr>
@@ -156,7 +215,7 @@ export default function AdminDogsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-brand-soft-blue/30">
-              {dogs.map((dog) => (
+              {rows.map((dog) => (
                 <tr key={dog.id} className={busyId === dog.id ? "opacity-50" : ""}>
                   <td className="px-4 py-3 font-medium text-brand-charcoal">{dog.name}</td>
                   <td className="px-4 py-3">
@@ -225,12 +284,22 @@ export default function AdminDogsPage() {
                           <button
                             type="button"
                             disabled={busyId === dog.id}
-                            onClick={() => setStatus(dog.id, "archived")}
+                            onClick={() => archiveDog(dog)}
                             className="text-brand-charcoal/70 hover:underline"
                           >
                             Archive
                           </button>
                         </>
+                      )}
+                      {dog.status === "adopted" && (
+                        <button
+                          type="button"
+                          disabled={busyId === dog.id}
+                          onClick={() => archiveDog(dog)}
+                          className="text-brand-charcoal/70 hover:underline"
+                        >
+                          Archive
+                        </button>
                       )}
                       {dog.status === "published" && (
                         <button
@@ -324,6 +393,8 @@ export default function AdminDogsPage() {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
     </div>
   );

@@ -192,7 +192,11 @@ function EditDogForm() {
       intake_date: form.intake_date || null,
       description: form.description.trim() || null,
       foster_notes: form.foster_notes.trim() || null,
-      success_story: form.status === "adopted" ? form.success_story.trim() || null : null,
+      // Kept for an archived dog too, so editing one in the archive doesn't
+      // erase the story it had when it was adopted.
+      success_story: ["adopted", "archived"].includes(form.status)
+        ? form.success_story.trim() || null
+        : null,
       // A story with no text can't be "published" -- keep the flag honest so
       // the Success Stories page never has to guess.
       success_story_status: form.success_story.trim() ? form.success_story_status : "draft",

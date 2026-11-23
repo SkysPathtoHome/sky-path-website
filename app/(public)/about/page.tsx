@@ -30,19 +30,19 @@ const boardMembers = [
     name: "Brianna Trent",
     title: "President and Director",
     photo: "/board/brianna-trent.jpg",
-    bio: "As President, Brianna leads the rescue and its board meetings and oversees daily operations, coordinating intake, veterinary care, fostering, and adoptions. Brianna especially loves special needs animals and caring for them.",
+    bio: "As President, Brianna leads the rescue and its board meetings and oversees daily operations, coordinating intake, veterinary care, fostering, and adoptions. She especially loves special needs animals and caring for them.",
   },
   {
     name: "Gregory Trent",
     title: "Treasurer and Director",
     photo: "/board/gregory-trent.jpg",
-    bio: "Gregory leads finance and information technology development for the rescue. A U.S. Army Veteran, Gregory grew up with rabbits, iguanas, dogs, and cats and has a love for all animals.",
+    bio: "Gregory leads finance and information technology development for the rescue. A U.S. Army Veteran, he grew up with rabbits, iguanas, dogs, and cats and has a love for all animals.",
   },
   {
     name: "Amanda Milam",
     title: "Secretary and Director",
     photo: "/board/amanda-milam.jpg",
-    bio: "Amanda is a communications operator who leads the rescue's social media presence and has a passion for dogs of all shapes and sizes. Pictured here with rescue dog Enzo, Amanda believes every dog deserves a loving home, no matter their breed, size, or story.",
+    bio: "Amanda is a communications operator who leads the rescue's social media presence and has a passion for dogs of all shapes and sizes. Pictured here with her rescue dog, Enzo, she believes every dog deserves a loving home, no matter their breed, size, or story.",
   },
 ];
 

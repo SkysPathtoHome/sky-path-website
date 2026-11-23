@@ -96,89 +96,85 @@ export default function DonatePage() {
 
         </div>
 
-        {/* DAF donors grant through their provider (Fidelity Charitable,
-            Schwab, Vanguard, ...), which matches the charity by EIN. The
-            Chariot DAFpay button shortcuts that, but only once the Chariot
-            plan includes it; the EIN card works regardless. */}
-        <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-center">
-          <h2 className="font-heading text-lg font-semibold text-brand-deep-blue">
-            Give from a Donor-Advised Fund
+        {/* One card for both: we have no brokerage account, so shares cannot
+            come to us directly -- stock reaches us as a cash grant from the
+            donor's own DAF, which matches the charity by name or EIN. The
+            Chariot DAFpay button and the Givebutter link shortcut step 3 and
+            appear once their ids are filled in; the steps work regardless. */}
+        <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-left">
+          <h2 className="text-center font-heading text-lg font-semibold text-brand-deep-blue">
+            Give Stock or from a Donor-Advised Fund
           </h2>
-          {siteConfig.chariotConnectId ? (
-            <>
-              <p className="mt-2 text-sm leading-relaxed text-brand-charcoal/90">
-                Have a donor-advised fund with Fidelity Charitable, Schwab Charitable, Vanguard
-                Charitable, or another provider? DAFpay lets you recommend a grant to Sky&rsquo;s
-                Path to Home in a few clicks, with no forms to fill out.
-              </p>
-              <div className="mt-4">
-                <ChariotDafButton />
-              </div>
-              <p className="mt-3 text-xs leading-relaxed text-brand-charcoal/70">
-                Prefer to grant directly through your provider? Our EIN is{" "}
-                <span className="font-semibold">{siteConfig.ein}</span>.
-              </p>
-            </>
-          ) : (
-            <>
-              <p className="mt-2 text-sm leading-relaxed text-brand-charcoal/90">
-                Have a donor-advised fund with Fidelity Charitable, Schwab Charitable, Vanguard
-                Charitable, or another provider? Log in to your fund and recommend a grant to us
-                using the details below.
-              </p>
-              <dl className="mx-auto mt-4 grid max-w-xs grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-left text-sm text-brand-charcoal">
+          <p className="mt-2 text-sm leading-relaxed text-brand-charcoal/90">
+            Sky&rsquo;s Path to Home can&rsquo;t receive shares directly yet, but you can give
+            appreciated stock through a donor-advised fund (DAF). It takes three steps. Already
+            have a DAF with money in it? Go straight to step 3.
+          </p>
+          <ol className="mt-4 list-decimal space-y-4 pl-5 text-sm leading-relaxed text-brand-charcoal/90">
+            <li>
+              <span className="font-semibold text-brand-charcoal">
+                Open a DAF, or use one you already have.
+              </span>{" "}
+              Most brokerages have their own: Fidelity Charitable (Fidelity), DAFgiving360
+              (Schwab), Vanguard Charitable. Daffy and Charityvest also work with any brokerage.
+              Opening one is usually free and done online.
+            </li>
+            <li>
+              <span className="font-semibold text-brand-charcoal">
+                Move the shares into your DAF.
+              </span>{" "}
+              In your DAF account, choose to contribute securities and follow the prompts to
+              transfer the shares from your brokerage account. If the DAF is at the same firm as
+              your brokerage, this is usually a few clicks. The DAF sells the shares, and your tax
+              receipt for the stock gift comes from the DAF sponsor.
+            </li>
+            <li>
+              <span className="font-semibold text-brand-charcoal">
+                Recommend a grant to Sky&rsquo;s Path to Home.
+              </span>{" "}
+              Once the cash shows in your DAF (typically a few business days), choose
+              &ldquo;recommend a grant&rdquo; and search for us by name or EIN:
+              <dl className="mt-3 grid max-w-xs grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-brand-charcoal">
                 <dt className="font-semibold">Legal name</dt>
                 <dd>{siteConfig.legalName}</dd>
                 <dt className="font-semibold">EIN</dt>
                 <dd>{siteConfig.ein}</dd>
               </dl>
-              {siteConfig.givebutterDafUrl && (
+              <p className="mt-3">
+                Enter the amount and submit. Please include your name on the grant (don&rsquo;t
+                mark it anonymous) so we can thank you.
+              </p>
+            </li>
+          </ol>
+          {siteConfig.chariotConnectId ? (
+            <div className="mt-5 text-center">
+              <p className="text-sm leading-relaxed text-brand-charcoal/90">
+                Or use DAFpay to recommend the grant in a few clicks, with no forms to fill out.
+              </p>
+              <div className="mt-3">
+                <ChariotDafButton />
+              </div>
+            </div>
+          ) : (
+            siteConfig.givebutterDafUrl && (
+              <div className="mt-5 text-center">
                 <a
                   href={siteConfig.givebutterDafUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center justify-center rounded-full bg-brand-purple px-6 py-2.5 text-sm font-semibold text-brand-white shadow-sm transition-colors hover:bg-brand-deep-blue focus-visible:outline-brand-deep-blue"
+                  className="inline-flex items-center justify-center rounded-full bg-brand-purple px-6 py-2.5 text-sm font-semibold text-brand-white shadow-sm transition-colors hover:bg-brand-deep-blue focus-visible:outline-brand-deep-blue"
                 >
                   Give from your DAF in a few clicks
                 </a>
-              )}
-              <p className="mt-3 text-xs leading-relaxed text-brand-charcoal/70">
-                We are a verified nonprofit with Chariot, so DAF grants reach us electronically.
-              </p>
-            </>
+              </div>
+            )
           )}
-        </div>
-
-        {/* We have no brokerage account, so shares cannot come to us directly.
-            Stock reaches us as a cash grant from the donor's own DAF. */}
-        <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-left">
-          <h2 className="text-center font-heading text-lg font-semibold text-brand-deep-blue">
-            Give Stock
-          </h2>
-          <p className="mt-2 text-sm leading-relaxed text-brand-charcoal/90">
-            We can&rsquo;t receive shares directly yet, but you can give appreciated stock from
-            your brokerage account through a donor-advised fund.
-          </p>
-          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-brand-charcoal/90">
-            <li>
-              Open a donor-advised fund, or use one you already have. Most brokerages, including
-              Fidelity, Schwab, and Vanguard, offer one.
-            </li>
-            <li>
-              Contribute the shares from your brokerage account to your fund. Your fund sells
-              them and sends you the tax receipt for your gift.
-            </li>
-            <li>
-              In your fund, recommend a grant to Sky&rsquo;s Path to Home. Search for us by our
-              EIN, <span className="font-semibold">{siteConfig.ein}</span>.
-            </li>
-          </ol>
-          <p className="mt-3 text-xs leading-relaxed text-brand-charcoal/70">
-            Please include your name on the grant and email us at{" "}
+          <p className="mt-5 text-sm leading-relaxed text-brand-charcoal/90">
+            Please email us at{" "}
             <a href={`mailto:${siteConfig.contactEmail}`} className="font-semibold underline">
               {siteConfig.contactEmail}
             </a>{" "}
-            so we can watch for your gift and thank you.
+            the amount and the DAF you used, so we can watch for the grant and match it to you.
           </p>
         </div>
 

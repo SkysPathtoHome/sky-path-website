@@ -30,33 +30,19 @@ const boardMembers = [
     name: "Brianna Trent",
     title: "President and Director",
     photo: "/board/brianna-trent.jpg",
-    bio: [
-      "Leads the rescue and board meetings",
-      "Oversees daily operations",
-      "Coordinates intake, veterinary care, fostering and adoptions",
-      "Loves special needs animals and caring for them",
-    ],
+    bio: "As President, Brianna leads the rescue and its board meetings and oversees daily operations, coordinating intake, veterinary care, fostering, and adoptions. Brianna especially loves special needs animals and caring for them.",
   },
   {
     name: "Gregory Trent",
     title: "Treasurer and Director",
     photo: "/board/gregory-trent.jpg",
-    bio: [
-      "Leads finance and information technology development",
-      "U.S. Army Veteran",
-      "Grew up with rabbits, iguanas, dogs, and cats",
-      "Has a love for all animals",
-    ],
+    bio: "Gregory leads finance and information technology development for the rescue. A U.S. Army Veteran, Gregory grew up with rabbits, iguanas, dogs, and cats and has a love for all animals.",
   },
   {
     name: "Amanda Milam",
     title: "Secretary and Director",
     photo: "/board/amanda-milam.jpg",
-    bio: [
-      "Communications operator and leads the social media presence",
-      "Has a passion for dogs of all shapes and sizes",
-      "Pictured with my rescue dog, Enzo. Every dog deserves a loving home, no matter their breed, size, or story.",
-    ],
+    bio: "Amanda is a communications operator who leads the rescue's social media presence and has a passion for dogs of all shapes and sizes. Pictured here with rescue dog Enzo, Amanda believes every dog deserves a loving home, no matter their breed, size, or story.",
   },
 ];
 
@@ -204,14 +190,7 @@ export default function AboutPage() {
               </div>
               <p className="mt-4 font-heading font-semibold text-brand-deep-blue">{member.name}</p>
               <p className="mt-1 text-sm text-brand-charcoal/80">{member.title}</p>
-              <ul className="mt-3 space-y-1 text-left text-xs leading-relaxed text-brand-charcoal/80">
-                {member.bio.map((line) => (
-                  <li key={line} className="flex gap-1.5">
-                    <span aria-hidden="true">&bull;</span>
-                    <span>{line}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="mt-3 text-left text-xs leading-relaxed text-brand-charcoal/80">{member.bio}</p>
             </li>
           ))}
         </ul>

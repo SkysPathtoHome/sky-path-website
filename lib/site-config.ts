@@ -53,7 +53,7 @@ export const siteConfig = {
   givebutterDafUrl: "",
   // Exact legal name as registered with the IRS -- DAF providers match
   // grant recommendations against it.
-  legalName: "Sky's Path to Home",
+  legalName: "Skys Path to Home",
 } as const;
 
 export type NavLink = {

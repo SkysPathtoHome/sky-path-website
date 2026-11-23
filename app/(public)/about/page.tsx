@@ -36,7 +36,7 @@ const boardMembers = [
     name: "Gregory Trent",
     title: "Treasurer and Director",
     photo: "/board/gregory-trent.jpg",
-    bio: "Gregory leads finance and information technology development for the rescue. A U.S. Army Veteran, he grew up with rabbits, iguanas, dogs, and cats and has a love for all animals.",
+    bio: "Gregory leads finance and information technology development for the rescue. A U.S. Army Veteran, he grew up with rabbits, iguanas, dogs, and cats and has a love for all animals. He is proud to help every dog that comes through Sky's Path find its way to a loving home.",
   },
   {
     name: "Amanda Milam",

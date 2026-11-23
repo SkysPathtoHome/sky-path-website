@@ -149,6 +149,39 @@ export default function DonatePage() {
           )}
         </div>
 
+        {/* We have no brokerage account, so shares cannot come to us directly.
+            Stock reaches us as a cash grant from the donor's own DAF. */}
+        <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-left">
+          <h2 className="text-center font-heading text-lg font-semibold text-brand-deep-blue">
+            Give Stock
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-brand-charcoal/90">
+            We can&rsquo;t receive shares directly yet, but you can give appreciated stock from
+            your brokerage account through a donor-advised fund.
+          </p>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-brand-charcoal/90">
+            <li>
+              Open a donor-advised fund, or use one you already have. Most brokerages, including
+              Fidelity, Schwab, and Vanguard, offer one.
+            </li>
+            <li>
+              Contribute the shares from your brokerage account to your fund. Your fund sells
+              them and sends you the tax receipt for your gift.
+            </li>
+            <li>
+              In your fund, recommend a grant to Sky&rsquo;s Path to Home. Search for us by our
+              EIN, <span className="font-semibold">{siteConfig.ein}</span>.
+            </li>
+          </ol>
+          <p className="mt-3 text-xs leading-relaxed text-brand-charcoal/70">
+            Please include your name on the grant and email us at{" "}
+            <a href={`mailto:${siteConfig.contactEmail}`} className="font-semibold underline">
+              {siteConfig.contactEmail}
+            </a>{" "}
+            so we can watch for your gift and thank you.
+          </p>
+        </div>
+
         <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-left">
           <h2 className="font-heading text-lg font-semibold text-brand-deep-blue">
             Our Nonprofit Status

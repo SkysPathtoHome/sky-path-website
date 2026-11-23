@@ -176,6 +176,9 @@ export default function DonatePage() {
             </a>{" "}
             the amount and the DAF you used, so we can watch for the grant and match it to you.
           </p>
+          <p className="mt-3 text-center text-xs leading-relaxed text-brand-charcoal/70">
+            We are a verified nonprofit with Chariot, so DAF grants reach us electronically.
+          </p>
         </div>
 
         <div className="mx-auto mt-6 max-w-xl rounded-lg border border-brand-soft-blue bg-brand-gray p-6 text-left">

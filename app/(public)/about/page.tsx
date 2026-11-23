@@ -41,7 +41,12 @@ const boardMembers = [
     name: "Gregory Trent",
     title: "Treasurer and Director",
     photo: "/board/gregory-trent.jpg",
-    bio: ["Leads finance and information technology development", "Has a love for all animals"],
+    bio: [
+      "Leads finance and information technology development",
+      "U.S. Army Veteran",
+      "Grew up with rabbits, iguanas, dogs, and cats",
+      "Has a love for all animals",
+    ],
   },
   {
     name: "Amanda Milam",
